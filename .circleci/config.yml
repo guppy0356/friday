@@ -1,0 +1,88 @@
+version: 2
+
+default: &default
+
+jobs:
+  build:
+    docker:
+      - image: circleci/ruby:2.7.1-buster
+        environment:
+          BUNDLE_JOBS: 3
+          BUNDLE_RETRY: 3
+          BUNDLE_PATH: vendor/bundle
+          RAILS_ENV: test
+
+    working_directory: ~/app
+
+    steps:
+      - checkout
+
+      - restore_cache:
+          keys:
+            - rails-bundle-v1-{{ checksum "Gemfile.lock" }}
+            - rails-bundle-v1-
+
+      - run:
+          name: bundle install
+          command: bundle check --path vendor/bundle || bundle install --deployment
+
+      - save_cache:
+          key: rails-bundle-v1-{{ checksum "Gemfile.lock" }}
+          paths:
+            - vendor/bundle
+
+      - persist_to_workspace:
+          root: ~/app
+          paths:
+            - vendor/bundle
+
+  test:
+    docker:
+      - image: circleci/ruby:2.7.1-buster
+        environment:
+          BUNDLE_JOBS: 3
+          BUNDLE_RETRY: 3
+          BUNDLE_PATH: vendor/bundle
+          RAILS_ENV: test
+
+    working_directory: ~/app
+
+    steps:
+      - checkout
+
+      - restore_cache:
+          keys:
+            - rails-bundle-v1-{{ checksum "Gemfile.lock" }}
+            - rails-bundle-v1-
+
+      - run:
+          name: bundle install
+          command: bundle check --path vendor/bundle || bundle install --deployment
+
+      - save_cache:
+          key: rails-bundle-v1-{{ checksum "Gemfile.lock" }}
+          paths:
+            - vendor/bundle
+
+      - persist_to_workspace:
+          root: ~/app
+          paths:
+            - vendor/bundle
+
+      - run:
+          name: database setup
+          command: bin/rails db:schema:load --trace
+
+      - run:
+          name: RSpec
+          command: |
+            bundle exec rspec
+
+workflows:
+  version: 2
+  build-and-test:
+    jobs:
+      - test:
+          requires:
+            - build
+      - build
